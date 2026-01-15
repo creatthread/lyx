@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>玫瑰花路径粒子拖尾效果</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        /* 加载提示 */
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-family: sans-serif; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div id="loading">正在加载玫瑰花素材...</div>
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const loadingDiv = document.getElementById('loading');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let particles = [];
+    let angle = 0;
+
+    // --- 1. 图片加载部分 ---
+    const roseImage = new Image();
+    // 这里使用一张网络上的玫瑰花PNG素材地址作为示例
+    // 如果为了稳定，建议下载到本地并替换为本地路径，例如 'rose.png'
+    roseImage.src = 'my-roses.png';
+
+    // 只有当图片加载完成后，才开始动画
+    roseImage.onload = () => {
+        loadingDiv.style.display = 'none'; // 隐藏加载提示
+        animate();
+    };
+    
+    // 处理加载失败的情况
+    roseImage.onerror = () => {
+        loadingDiv.textContent = '图片加载失败，请检查网络或图片地址。';
+    };
+
+
+    // --- 2. 粒子类定义 ---
+    class Particle {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            // 随机散射速度
+            this.vx = (Math.random() - 0.5) * 5; // 稍微加大一点扩散速度
+            this.vy = (Math.random() - 0.5) * 5;
+            // 图片的绘制大小 (像素)
+            this.size = Math.random() * 25 + 15; 
+            this.life = 1; // 生命值 1 -> 0
+            this.decay = Math.random() * 0.01 + 0.005; // 消失速度
+            this.rotation = Math.random() * Math.PI * 2; // 初始旋转角度
+            this.rotationSpeed = (Math.random() - 0.5) * 0.1; // 自转速度
+        }
+
+        draw() {
+            ctx.save();
+            // 将画布原点移动到粒子的坐标
+            ctx.translate(this.x, this.y);
+            // 旋转画布
+            ctx.rotate(this.rotation);
+            
+            // **核心改动：使用 globalAlpha 控制图片透明度**
+            ctx.globalAlpha = this.life;
+
+            // **核心改动：绘制图片**
+            // drawImage(图片对象, x, y, 宽度, 高度)
+            // 我们在 (-size/2, -size/2) 绘制，是为了让图片中心对齐当前坐标点
+            ctx.drawImage(roseImage, -this.size / 2, -this.size / 2, this.size, this.size);
+
+            ctx.restore();
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vy += 0.03; // 微弱重力
+            this.life -= this.decay;
+            this.rotation += this.rotationSpeed; // 增加自转
+        }
+    }
+
+    // --- 3. 动画主循环 ---
+    function animate() {
+        // 拖尾效果
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.globalAlpha = 1.0; // 重置透明度给背景使用
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 计算发光引导点的位置 (模拟"8"字形轨迹)
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radiusX = canvas.width * 0.4;
+        const radiusY = canvas.height * 0.3;
+        
+        const targetX = centerX + Math.sin(angle) * radiusX;
+        const targetY = centerY + Math.sin(angle * 2) * radiusY;
+
+        // 在引导点位置生成新粒子
+        for (let i = 0; i < 4; i++) { // 每次生成4朵
+            particles.push(new Particle(targetX, targetY));
+        }
+
+        // 绘制引导头（发光点）
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(targetX, targetY, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = '#ff0055'; // 改成偏红色的光
+        ctx.globalAlpha = 1.0;
+        ctx.fill();
+        ctx.restore();
+
+        // 更新和绘制所有花朵粒子
+        particles = particles.filter(p => p.life > 0);
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+
+        angle += 0.03; // 加快一点移动速度
+        requestAnimationFrame(animate);
+    }
+
+    // 窗口缩放适配
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+</script>
+</body>
+</html>
